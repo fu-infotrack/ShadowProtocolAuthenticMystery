@@ -1,5 +1,4 @@
 using Marten;
-using Marten.Events.Daemon.Resiliency;
 using MartenPlayground.ApiService;
 using MartenPlayground.ApiService.Domain;
 using MassTransit;
@@ -31,13 +30,16 @@ builder.Services
         // TODO: build migration into release pipeline
         if (builder.Environment.IsDevelopment())
         {
-            options.AutoCreateSchemaObjects = Weasel.Core.AutoCreate.All;
+            options.AutoCreateSchemaObjects = JasperFx.AutoCreate.All;
         }
 
         options.Policies.ForAllDocuments(x =>
         {
             x.Metadata.CreatedAt.Enabled = true;
         });
+
+        // Disable the absurdly verbose Npgsql logging
+        options.DisableNpgsqlLogging = true;
 
         options.Events.UseMandatoryStreamTypeDeclaration = true;
     })
@@ -52,13 +54,12 @@ builder.Services
         o.Options.BatchSize = 10;
 
         o.Options.SubscribeFromPresent();
+
+        o.FilterIncomingEventsOnStreamType(typeof(OrganisationEntity));
     })
     .UseLightweightSessions()
     .UseNpgsqlDataSource()
-    .AddAsyncDaemon(DaemonMode.HotCold);
-;
-
-
+    .AddAsyncDaemon(JasperFx.Events.Daemon.DaemonMode.HotCold);
 
 var app = builder.Build();
 
