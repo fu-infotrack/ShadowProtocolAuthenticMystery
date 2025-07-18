@@ -24,6 +24,7 @@ public class MartenRepository<TAggregate>(IDocumentSession documentSession) : IM
     {
         var events = aggregate.DequeueUncommittedEvents();
 
+
         documentSession.Events.StartStream<Aggregate>(
             id,
             events

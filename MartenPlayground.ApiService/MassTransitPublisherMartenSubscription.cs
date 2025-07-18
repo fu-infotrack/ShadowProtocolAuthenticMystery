@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Text.Json.Serialization;
+using JasperFx.Events;
 using JasperFx.Events.Daemon;
 using JasperFx.Events.Projections;
 using Marten;
@@ -6,45 +9,46 @@ using MassTransit;
 
 namespace MartenPlayground.ApiService;
 
-public class MassTransitPublisherMartenSubscription(IPublishEndpoint publishEndpoint) : ISubscription
+public class MassTransitPublisherMartenSubscription(
+    ILogger<MassTransitPublisherMartenSubscription> logger,
+    IPublishEndpoint publishEndpoint)
+    : ISubscription
 {
-    public Task<IChangeListener> ProcessEventsAsync(EventRange page, ISubscriptionController controller, IDocumentOperations operations,
+    public async Task<IChangeListener> ProcessEventsAsync(EventRange page, ISubscriptionController controller, IDocumentOperations operations,
         CancellationToken cancellationToken)
     {
-        Console.WriteLine($"Starting to process events from {page.SequenceFloor} to {page.SequenceCeiling}");
+        logger.LogInformation("Starting to process events from {SequenceFloor} to {SequenceCeiling}", page.SequenceFloor, page.SequenceCeiling);
         foreach (var e in page.Events)
         {
-            var type = e.EventType;
-
-            // create a generic type for the event
-            // var eventType = typeof(StreamedIntegrationEvent<>).MakeGenericType(type);
-
-            Console.WriteLine($"Processing event of type {e.Data.GetType()} with ID {e.Id}");
-
-            //// convert the event to the generic type and map properties
-            //var streamedEvent = Activator.CreateInstance(eventType);
-            //if (streamedEvent is StreamedIntegrationEvent<object> integrationEvent)
-            //{
-            //    integrationEvent.Id = e.Id;
-            //    integrationEvent.Version = e.Version;
-            //    integrationEvent.Sequence = e.Sequence;
-            //    integrationEvent.Data = e.Data;
-            //    integrationEvent.StreamId = e.StreamId;
-            //    integrationEvent.StreamKey = e.StreamKey;
-            //    integrationEvent.Timestamp = e.Timestamp;
-            //    integrationEvent.TenantId = e.TenantId;
-            //    integrationEvent.EventTypeName = e.EventTypeName;
-            //    integrationEvent.DotNetTypeName = e.DotNetTypeName;
-            //    integrationEvent.CausationId = e.CausationId;
-            //    integrationEvent.CorrelationId = e.CorrelationId;
-            //    integrationEvent.Headers = e.Headers;
-            //    // Publish the event using MassTransit
-            //    publishEndpoint.Publish(streamedEvent, cancellationToken);
-            //}
+            object integrationEvent = CreateIntegrationEventInstance(e);
+            await publishEndpoint.Publish(integrationEvent, cancellationToken);
+            logger.LogInformation("Published event of type {DataType} with ID {Id}", e.Data.GetType(), e.Id);
         }
 
-        // If you don't care about being signaled for
-        return Task.FromResult(NullChangeListener.Instance);
+        return NullChangeListener.Instance;
+    }
+
+    private static object CreateIntegrationEventInstance(IEvent e)
+    {
+        var createMethod = GetOrCreateCreateMethod(e.EventType);
+        var integrationEvent = createMethod.Invoke(null, [e])!;
+
+        return integrationEvent;
+    }
+
+    private static readonly Dictionary<Type, MethodInfo> _createMethodCache = new();
+
+    private static MethodInfo GetOrCreateCreateMethod(Type type)
+    {
+        if (!_createMethodCache.TryGetValue(type, out var result))
+        {
+            var integrationEventType = typeof(IntegrationEvent<>).MakeGenericType(type);
+            result = integrationEventType.GetMethod(
+                "Create",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+            _createMethodCache[type] = result;
+        }
+        return result;
     }
 
     public ValueTask DisposeAsync()
@@ -53,72 +57,123 @@ public class MassTransitPublisherMartenSubscription(IPublishEndpoint publishEndp
     }
 }
 
-public class StreamedIntegrationEvent<T>
+public class IntegrationEvent<T>
 {
+    [JsonConstructor]
+    protected IntegrationEvent(
+        Guid id,
+        long version,
+        long sequence,
+        T data,
+        Guid streamId,
+        string? streamKey,
+        DateTimeOffset timestamp,
+        string tenantId,
+        string eventTypeName,
+        string dotNetTypeName,
+        string? causationId,
+        string? correlationId,
+        Dictionary<string, object>? headers
+        )
+    {
+        Id = id;
+        Version = version;
+        Sequence = sequence;
+        Data = data;
+        StreamId = streamId;
+        StreamKey = streamKey;
+        Timestamp = timestamp;
+        TenantId = tenantId;
+        EventTypeName = eventTypeName;
+        DotNetTypeName = dotNetTypeName;
+        CausationId = causationId;
+        CorrelationId = correlationId;
+        Headers = headers;
+    }
+
+    public static IntegrationEvent<T> Create(IEvent @event)
+    {
+        return new IntegrationEvent<T>(
+            id: @event.Id,
+            version: @event.Version,
+            sequence: @event.Sequence,
+            data: (T)@event.Data,
+            streamId: @event.StreamId,
+            streamKey: @event.StreamKey,
+            timestamp: @event.Timestamp,
+            tenantId: @event.TenantId,
+            eventTypeName: @event.EventTypeName,
+            dotNetTypeName: @event.DotNetTypeName,
+            causationId: @event.CausationId,
+            correlationId: @event.CorrelationId,
+            headers: @event.Headers ?? new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        );
+    }
+
     //
     // Summary:
     //     Unique identifier for the event. Uses a sequential Guid
-    public Guid Id { get; set; }
+    public Guid Id { get; protected set; }
 
     //
     // Summary:
     //     The version of the stream this event reflects. The place in the stream.
-    public long Version { get; set; }
+    public long Version { get; protected set; }
 
     //
     // Summary:
     //     The sequential order of this event in the entire event store
-    public long Sequence { get; set; }
+    public long Sequence { get; protected set; }
 
     //
     // Summary:
     //     The actual event data body
-    public T Data { get; set; }
+    public T Data { get; protected set; }
 
     //
     // Summary:
     //     If using Guid's for the stream identity, this will refer to the Stream's Id,
     //     otherwise it will always be Guid.Empty
-    public Guid StreamId { get; set; }
+    public Guid StreamId { get; protected set; }
 
     //
     // Summary:
     //     If using strings as the stream identifier, this will refer to the containing
     //     Stream's Id
-    public string? StreamKey { get; set; }
+    public string? StreamKey { get; protected set; }
 
     //
     // Summary:
     //     The UTC time that this event was originally captured
-    public DateTimeOffset Timestamp { get; set; }
+    public DateTimeOffset Timestamp { get; protected set; }
 
     //
     // Summary:
     //     If using multi-tenancy by tenant id
-    public string TenantId { get; set; }
+    public string TenantId { get; protected set; }
 
     //
     // Summary:
     //     Marten's type alias string for the Event type
-    public string EventTypeName { get; set; }
+    public string EventTypeName { get; protected set; }
 
     //
     // Summary:
     //     Marten's string representation of the event type in assembly qualified name
-    public string DotNetTypeName { get; set; }
+    public string DotNetTypeName { get; protected set; }
 
     //
     // Summary:
     //     Optional metadata describing the causation id
-    public string? CausationId { get; set; }
+    public string? CausationId { get; protected set; }
 
     //
     // Summary:
     //     Optional metadata describing the correlation id
-    public string? CorrelationId { get; set; }
+    public string? CorrelationId { get; protected set; }
 
     //
     // Summary:
     //     Optional user defined metadata values. This may be null.
-    public Dictionary<string, object>? Headers { get; set; }
+    public Dictionary<string, object>? Headers { get; protected set; }
 }

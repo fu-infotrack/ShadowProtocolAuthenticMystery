@@ -1,3 +1,4 @@
+using System.Reflection;
 using Marten;
 using MartenPlayground.ApiService;
 using MartenPlayground.ApiService.Domain;
@@ -16,6 +17,8 @@ builder.Services.AddScoped<IMartenRepository<OrganisationEntity>, MartenReposito
 
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumers(Assembly.GetExecutingAssembly());
+
     x.UsingInMemory((context, cfg) =>
     {
         cfg.ConfigureEndpoints(context);
@@ -42,20 +45,26 @@ builder.Services
         options.DisableNpgsqlLogging = true;
 
         options.Events.UseMandatoryStreamTypeDeclaration = true;
+
+        options.Policies.ForAllDocuments(x =>
+        {
+            x.Metadata.CausationId.Enabled = true;
+            x.Metadata.CorrelationId.Enabled = true;
+            x.Metadata.Headers.Enabled = true;
+
+            // This column is "opt in"
+            x.Metadata.CreatedAt.Enabled = true;
+        });
     })
     .AddSubscriptionWithServices<MassTransitPublisherMartenSubscription>(ServiceLifetime.Scoped, o =>
     {
         // This is a default, but just showing what's possible
         o.IncludeArchivedEvents = false;
 
-        // o.FilterIncomingEventsOnStreamType(typeof(Invoice));
-
         // Process no more than 10 events at a time
         o.Options.BatchSize = 10;
 
         o.Options.SubscribeFromPresent();
-
-        o.FilterIncomingEventsOnStreamType(typeof(OrganisationEntity));
     })
     .UseLightweightSessions()
     .UseNpgsqlDataSource()
@@ -115,24 +124,6 @@ app.MapPost("/entity/{id:Guid}/asic", async (
     await repository.GetAndUpdate(
         id,
         e => e.InitiateAsicExtract(new AsicExtractInitiated(extractId)),
-        cancellationToken: cancellationToken);
-
-    // TODO: move this to a consumer
-    await repository.GetAndUpdate(
-        id,
-        e => e.CreateAsicExtractJob(new AsicExtractJobCreated(extractId)),
-        cancellationToken: cancellationToken);
-
-    // TODO: move this to a consumer
-    await repository.GetAndUpdate(
-        id,
-        e => e.ReceiveAsicExtract(new AsicExtractReceived(extractId)),
-            cancellationToken: cancellationToken);
-
-    // TODO: move this to a consumer
-    await repository.GetAndUpdate(
-        id,
-        e => e.CompleteAsicExtractOrder(new AsicExtractOrderCompleted(extractId)),
         cancellationToken: cancellationToken);
 
     return Results.Ok();

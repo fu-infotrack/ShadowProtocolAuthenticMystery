@@ -60,7 +60,7 @@ public class OrganisationEntity : Aggregate
         Enqueue(@event);
     }
 
-    public void CreateAsicExtractJob(AsicExtractJobCreated @event)
+    public void CreateAsicExtractOrder(AsicExtractOrderCreated @event)
     {
         var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
         if (extract == null)
@@ -128,7 +128,7 @@ public class OrganisationEntity : Aggregate
         Extracts.Add(new AsicExtract(@event.Id));
     }
 
-    private void Apply(AsicExtractJobCreated @event)
+    private void Apply(AsicExtractOrderCreated @event)
     {
         var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
         extract?.MarkAsLodged();
@@ -216,6 +216,6 @@ public record RiskExtractInitiated(Guid Id);
 public record RiskExtractReceived(Guid Id);
 
 public record AsicExtractInitiated(Guid Id);
-public record AsicExtractJobCreated(Guid Id);
+public record AsicExtractOrderCreated(Guid Id, int OrderId);
 public record AsicExtractReceived(Guid Id);
 public record AsicExtractOrderCompleted(Guid Id);
