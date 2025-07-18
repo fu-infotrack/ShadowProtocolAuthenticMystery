@@ -2,6 +2,7 @@
  * ported from https://github.com/oskardudycz/EventSourcing.NetCore/blob/main/Core/Aggregates/Aggregate.cs
  */
 
+using System.Collections.Concurrent;
 using Marten;
 
 namespace MartenPlayground.ApiService;
@@ -59,7 +60,9 @@ public class MartenRepository<TAggregate>(IDocumentSession documentSession) : IM
         CancellationToken ct = default
     )
     {
-        var stream = await documentSession.Events.FetchForWriting<TAggregate>(id, ct).ConfigureAwait(false)
+        // TODO: how can we use optimitic concurrency here?
+        // FetchForExclusiveWriting applies a pessimistic lock on the stream
+        var stream = await documentSession.Events.FetchForExclusiveWriting<TAggregate>(id, cancellation: ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Aggregate with ID {id} not found.");
         var entity = stream.Aggregate;
 
@@ -106,7 +109,7 @@ public abstract class Aggregate<TEvent, TId> : IAggregate<TEvent>
 
     public int Version { get; protected set; }
 
-    [NonSerialized] private readonly Queue<TEvent> uncommittedEvents = new();
+    [NonSerialized] private readonly ConcurrentQueue<TEvent> uncommittedEvents = new();
 
     public virtual void Apply(TEvent @event) { }
 

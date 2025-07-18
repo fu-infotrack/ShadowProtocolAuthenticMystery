@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Security.Cryptography;
 using Marten;
 using MartenPlayground.ApiService;
 using MartenPlayground.ApiService.Domain;
@@ -119,11 +120,15 @@ app.MapPost("/entity/{id:Guid}/asic", async (
     [FromRoute] Guid id,
     CancellationToken cancellationToken) =>
 {
-    var extractId = Guid.NewGuid();
-
     await repository.GetAndUpdate(
         id,
-        e => e.InitiateAsicExtract(new AsicExtractInitiated(extractId)),
+        e =>
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                e.InitiateAsicExtract(new AsicExtractInitiated(Guid.NewGuid(), $"{RandomNumberGenerator.GetInt32(100_000_000, 1_000_000_000)}"));
+            }
+        },
         cancellationToken: cancellationToken);
 
     return Results.Ok();

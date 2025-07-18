@@ -51,7 +51,7 @@ public class OrganisationEntity : Aggregate
             return;
         }
 
-        if (Extracts.OfType<AsicExtract>().Any(e => e.Status != "Completed"))
+        if (Extracts.OfType<AsicExtract>().Any(e => e.Status != "Completed" && e.Acn == @event.Acn))
         {
             throw new InvalidOperationException("Cannot initiate a new ASIC extract while another is in progress.");
         }
@@ -124,8 +124,8 @@ public class OrganisationEntity : Aggregate
 
     private void Apply(AsicExtractInitiated @event)
     {
-        Extracts.RemoveWhere(e => e is RiskExtract); // TODO: Clear previous asic extracts
-        Extracts.Add(new AsicExtract(@event.Id));
+        Extracts.RemoveWhere(e => e is AsicExtract ae && ae.Acn == @event.Acn); // TODO: Clear previous asic extracts
+        Extracts.Add(new AsicExtract(@event.Id, @event.Acn));
     }
 
     private void Apply(AsicExtractOrderCreated @event)
@@ -188,9 +188,11 @@ public class RiskExtract(Guid id) : IExtract
     }
 }
 
-public class AsicExtract(Guid id) : IExtract
+public class AsicExtract(Guid id, string acn) : IExtract
 {
     public Guid ExtractId { get; } = id;
+
+    public string Acn { get; } = acn;
 
     public string Status { get; private set; } = "Initiated";
 
@@ -215,7 +217,7 @@ public record EntityCreated(Guid EntityId);
 public record RiskExtractInitiated(Guid Id);
 public record RiskExtractReceived(Guid Id);
 
-public record AsicExtractInitiated(Guid Id);
+public record AsicExtractInitiated(Guid Id, string Acn);
 public record AsicExtractOrderCreated(Guid Id, int OrderId);
 public record AsicExtractReceived(Guid Id);
 public record AsicExtractOrderCompleted(Guid Id);
