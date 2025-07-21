@@ -36,13 +36,13 @@ public class MassTransitPublisherMartenSubscription(
         return integrationEvent;
     }
 
-    private static readonly Dictionary<Type, MethodInfo> _createMethodCache = new();
+    private static readonly Dictionary<Type, MethodInfo> _createMethodCache = [];
 
     private static MethodInfo GetOrCreateCreateMethod(Type type)
     {
         if (!_createMethodCache.TryGetValue(type, out var result))
         {
-            var integrationEventType = typeof(IntegrationEvent<>).MakeGenericType(type);
+            var integrationEventType = typeof(StreamIntegrationEvent<>).MakeGenericType(type);
             result = integrationEventType.GetMethod(
                 "Create",
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
@@ -57,10 +57,10 @@ public class MassTransitPublisherMartenSubscription(
     }
 }
 
-public class IntegrationEvent<T>
+public class StreamIntegrationEvent<T>
 {
     [JsonConstructor]
-    protected IntegrationEvent(
+    protected StreamIntegrationEvent(
         Guid id,
         long version,
         long sequence,
@@ -91,9 +91,9 @@ public class IntegrationEvent<T>
         Headers = headers;
     }
 
-    public static IntegrationEvent<T> Create(IEvent @event)
+    public static StreamIntegrationEvent<T> Create(IEvent @event)
     {
-        return new IntegrationEvent<T>(
+        return new StreamIntegrationEvent<T>(
             id: @event.Id,
             version: @event.Version,
             sequence: @event.Sequence,

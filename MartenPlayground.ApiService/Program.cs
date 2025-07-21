@@ -1,7 +1,9 @@
 using System.Reflection;
 using System.Security.Cryptography;
+using JasperFx.Core.IoC;
 using Marten;
 using MartenPlayground.ApiService;
+using MartenPlayground.ApiService.Application;
 using MartenPlayground.ApiService.Domain;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +17,12 @@ builder.Services.AddOpenApi();
 
 builder.AddNpgsqlDataSource("db");
 builder.Services.AddScoped<IMartenRepository<OrganisationEntity>, MartenRepository<OrganisationEntity>>();
+
+builder.Services.Scan(scan =>
+{
+    scan.TheCallingAssembly();
+    scan.ConnectImplementationsToTypesClosing(typeof(IStreamIntegrationEventHandler<>), ServiceLifetime.Scoped);
+});
 
 builder.Services.AddMassTransit(x =>
 {
