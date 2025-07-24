@@ -131,7 +131,7 @@ public class OrganisationEntity : Aggregate
     private void Apply(AsicExtractOrderCreated @event)
     {
         var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
-        extract?.MarkAsLodged();
+        extract?.MarkAsOrderCreated();
     }
 
     private void Apply(AsicExtractReceived @event)
@@ -196,9 +196,9 @@ public class AsicExtract(Guid id, string acn) : IExtract
 
     public string Status { get; private set; } = "Initiated";
 
-    public void MarkAsLodged()
+    public void MarkAsOrderCreated()
     {
-        Status = "Lodged";
+        Status = "OrderCreate";
     }
 
     public void MarkAsReceived()
