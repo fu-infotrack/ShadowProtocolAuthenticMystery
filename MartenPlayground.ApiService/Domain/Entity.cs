@@ -29,7 +29,7 @@ public class OrganisationEntity : Aggregate
 
     public void ReceiveRiskExtract(RiskExtractReceived @event)
     {
-        var extract = Extracts.OfType<RiskExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<RiskExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
 
         if (extract == null)
         {
@@ -46,7 +46,7 @@ public class OrganisationEntity : Aggregate
 
     public void InitiateAsicExtract(AsicExtractInitiated @event)
     {
-        if (Extracts.OfType<AsicExtract>().Any(e => e.ExtractId == @event.Id))
+        if (Extracts.OfType<AsicExtract>().Any(e => e.ExtractId == @event.ExtractId))
         {
             return;
         }
@@ -62,7 +62,7 @@ public class OrganisationEntity : Aggregate
 
     public void CreateAsicExtractOrder(AsicExtractOrderCreated @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         if (extract == null)
         {
             throw new InvalidOperationException("Cannot lodge an ASIC extract that has not been initiated.");
@@ -77,7 +77,7 @@ public class OrganisationEntity : Aggregate
 
     public void ReceiveAsicExtract(AsicExtractReceived @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         if (extract == null)
         {
             throw new InvalidOperationException("Cannot receive an ASIC extract that has not been lodged.");
@@ -92,7 +92,7 @@ public class OrganisationEntity : Aggregate
 
     public void CompleteAsicExtractOrder(AsicExtractOrderCompleted @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         if (extract == null)
         {
             throw new InvalidOperationException("Cannot complete an ASIC extract order that has not been lodged.");
@@ -113,36 +113,36 @@ public class OrganisationEntity : Aggregate
     private void Apply(RiskExtractInitiated @event)
     {
         Extracts.RemoveWhere(e => e is RiskExtract); // TODO: Clear previous risk extracts
-        Extracts.Add(new RiskExtract(@event.Id));
+        Extracts.Add(new RiskExtract(@event.ExtractId));
     }
 
     private void Apply(RiskExtractReceived @event)
     {
-        var extract = Extracts.OfType<RiskExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<RiskExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         extract?.MarkAsReceived();
     }
 
     private void Apply(AsicExtractInitiated @event)
     {
         Extracts.RemoveWhere(e => e is AsicExtract ae && ae.Acn == @event.Acn); // TODO: Clear previous asic extracts
-        Extracts.Add(new AsicExtract(@event.Id, @event.Acn));
+        Extracts.Add(new AsicExtract(@event.ExtractId, @event.Acn));
     }
 
     private void Apply(AsicExtractOrderCreated @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         extract?.MarkAsLodged();
     }
 
     private void Apply(AsicExtractReceived @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         extract?.MarkAsReceived();
     }
 
     private void Apply(AsicExtractOrderCompleted @event)
     {
-        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.Id);
+        var extract = Extracts.OfType<AsicExtract>().FirstOrDefault(x => x.ExtractId == @event.ExtractId);
         extract?.MarkAsCompleted();
     }
 
@@ -214,10 +214,10 @@ public class AsicExtract(Guid id, string acn) : IExtract
 
 public record EntityCreated(Guid EntityId);
 
-public record RiskExtractInitiated(Guid Id);
-public record RiskExtractReceived(Guid Id);
+public record RiskExtractInitiated(Guid EntityId, Guid ExtractId);
+public record RiskExtractReceived(Guid EntityId, Guid ExtractId);
 
-public record AsicExtractInitiated(Guid Id, string Acn);
-public record AsicExtractOrderCreated(Guid Id, int OrderId);
-public record AsicExtractReceived(Guid Id);
-public record AsicExtractOrderCompleted(Guid Id);
+public record AsicExtractInitiated(Guid EntityId, Guid ExtractId, string Acn);
+public record AsicExtractOrderCreated(Guid EntityId, Guid ExtractId, int OrderId);
+public record AsicExtractReceived(Guid EntityId, Guid ExtractId);
+public record AsicExtractOrderCompleted(Guid EntityId, Guid ExtractId);

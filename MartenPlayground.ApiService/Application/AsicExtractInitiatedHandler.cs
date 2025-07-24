@@ -17,14 +17,14 @@ public class AsicExtractInitiatedHandler(
 
         logger.LogInformation(
                 "Received AsicExtractInitiated event with ID {Id} and Version {Version}",
-                integrationEvent.Data.Id, integrationEvent.Version);
+                integrationEvent.Id, integrationEvent.Version);
 
         await Task.Delay(1000, cancellationToken); // Simulate calling ASIC ds
         var orderId = RandomNumberGenerator.GetInt32(1000);
 
         var entity = await repository.GetAndUpdate(
             integrationEvent.StreamId,
-            e => e.CreateAsicExtractOrder(new AsicExtractOrderCreated(integrationEvent.Data.Id, orderId)),
+            e => e.CreateAsicExtractOrder(new AsicExtractOrderCreated(integrationEvent.Data.EntityId, integrationEvent.Data.ExtractId, orderId)),
             cancellationToken: cancellationToken);
     }
 }

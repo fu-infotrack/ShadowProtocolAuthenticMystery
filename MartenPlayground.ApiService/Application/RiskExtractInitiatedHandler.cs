@@ -10,7 +10,7 @@ public class RiskExtractInitiatedHandler(
     {
         logger.LogInformation(
                 "Received RiskExtractInitiated event with ID {Id} and Version {Version}",
-                integrationEvent.Data.Id, integrationEvent.Version);
+                integrationEvent.Id, integrationEvent.Version);
 
         await Task.Delay(1000, cancellationToken); // Simulate calling risk ds
     }

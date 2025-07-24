@@ -111,13 +111,13 @@ app.MapPost("/entity/{id:Guid}/risk", async (
 
     await repository.GetAndUpdate(
         id,
-        e => e.InitiateRiskExtract(new RiskExtractInitiated(extractId)),
+        e => e.InitiateRiskExtract(new RiskExtractInitiated(extractId, id)),
             cancellationToken: cancellationToken);
 
     // TODO: move this to a consumer
     await repository.GetAndUpdate(
         id,
-        e => e.ReceiveRiskExtract(new RiskExtractReceived(extractId)),
+        e => e.ReceiveRiskExtract(new RiskExtractReceived(extractId, id)),
             cancellationToken: cancellationToken);
 
     return Results.Ok();
@@ -134,7 +134,7 @@ app.MapPost("/entity/{id:Guid}/asic", async (
         {
             for (int i = 0; i < 5; i++)
             {
-                e.InitiateAsicExtract(new AsicExtractInitiated(Guid.NewGuid(), $"{RandomNumberGenerator.GetInt32(100_000_000, 1_000_000_000)}"));
+                e.InitiateAsicExtract(new AsicExtractInitiated(id, Guid.NewGuid(), $"{RandomNumberGenerator.GetInt32(100_000_000, 1_000_000_000)}"));
             }
         },
         cancellationToken: cancellationToken);
