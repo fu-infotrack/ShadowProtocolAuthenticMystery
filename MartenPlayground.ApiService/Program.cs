@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Security.Cryptography;
 using JasperFx.Core.IoC;
+using JasperFx.Events.Projections;
 using Marten;
 using MartenPlayground.ApiService;
 using MartenPlayground.ApiService.Application;
@@ -39,6 +40,8 @@ builder.Services
     {
         options.UseSystemTextJsonForSerialization();
 
+        options.DatabaseSchemaName = "myschema";
+
         // TODO: build migration into release pipeline
         if (builder.Environment.IsDevelopment())
         {
@@ -64,6 +67,8 @@ builder.Services
             // This column is "opt in"
             x.Metadata.CreatedAt.Enabled = true;
         });
+
+        options.Projections.Add<EntityHistoryTransformation>(ProjectionLifecycle.Async);
     })
     .AddSubscriptionWithServices<MassTransitPublisherMartenSubscription>(ServiceLifetime.Scoped, o =>
     {
@@ -148,6 +153,16 @@ app.MapGet("/entity/{id:Guid}", async (
     CancellationToken cancellationToken) =>
 {
     var entity = await repository.Find(id, cancellationToken);
+
+    return entity;
+});
+
+app.MapGet("/entity/{id:Guid}/history", async (
+    [FromServices] IQuerySession querySession,
+    [FromRoute] Guid id,
+    CancellationToken cancellationToken) =>
+{
+    var entity = await querySession.Query<EntityHistory>().Where(x => x.EntityId == id).ToListAsync(cancellationToken);
 
     return entity;
 });
